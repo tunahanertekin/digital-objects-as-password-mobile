@@ -1,114 +1,152 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
 
 import React from 'react';
 import {
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
   View,
   Text,
-  StatusBar,
+  TouchableOpacity,
+  Image,
+  TouchableHighlightBase
 } from 'react-native';
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+import ImagePicker from 'react-native-image-picker';
+import DocumentPicker from 'react-native-document-picker';
+import RNFS from 'react-native-fs';
+import CryptoJS from 'crypto-js';
 
-const App: () => React$Node = () => {
-  return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
-  );
-};
+export default class App extends React.Component {
 
-const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
-  },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
-  },
-});
+  state = {
+      options: {
+      title: 'Select Photo',
+      customButtons: [{ name: 'fb', title: 'Choose Photo from Facebook' }],
+      storageOptions: {
+        skipBackup: true,
+        path: 'images',
+      }
+    },
+    binaryData: "heyu",
+    hashedData: "hashed",
+    avatarSource: {},
+    message: "mo message"
+  }
+  
 
-export default App;
+  pickPhoto = () => {
+    ImagePicker.showImagePicker(this.state.options, (response) => {
+     
+      if (response.didCancel) {
+        this.setState({
+          message: "User cancelled image picker."
+        })
+      } else if (response.error) {
+        this.setState({
+          message: response.error
+        })
+      } else if (response.customButton) {
+        this.setState({
+          message: response.customButton
+        })
+      } else {
+
+        const source = { uri: 'data:image/jpeg;base64,' + response.data };
+     
+        this.setState({
+          avatarSource: source,
+          binaryData: response.data,
+          message: "Image is picked."
+        });
+      }
+
+      console.log(this.state.message)
+
+    });
+  }
+
+  async pickOtherFile(){
+
+    try {
+      const res = await DocumentPicker.pick({
+        type: [DocumentPicker.types.images],
+      });
+      console.log(
+        res.uri,
+        res.type, // mime type
+        res.name,
+        res.size
+      );
+
+      //------------------READ FILE--------------------
+
+      try {
+        
+        RNFS.readFile(res.uri, 'base64')
+        .then((contents) => {
+          this.setState({
+            binaryData: contents
+          })
+        })
+        .catch((err) => {
+          console.log(err.message, err.code);
+        });
+
+      } catch (error) {
+        console.log("error:", error.message)
+      }
+      
+      //------------------END READ FILE--------------------
+
+
+
+    } catch (err) {
+      if (DocumentPicker.isCancel(err)) {
+        // User cancelled the picker, exit any dialogs or menus and move on
+      } else {
+        throw err;
+      }
+    }
+
+    
+  }
+
+  async evaluateHash(){
+
+    this.setState({
+      hashedData: await CryptoJS.SHA256(this.state.binaryData).toString()
+    })
+ 
+  }
+  
+
+  render() {
+    return(
+      <View>
+        <TouchableOpacity
+        onPress = { () => this.pickPhoto() }
+        >
+          <Text>
+            Fotoğraf seç!
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+        onPress = { () => this.pickOtherFile() }
+        >
+          <Text>
+            Dosya seç!
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+        onPress = { () => this.evaluateHash() }
+        >
+          <Text>
+            Özet fonksiyonunu al.
+          </Text>
+        </TouchableOpacity>
+        <Text>
+          { this.state.hashedData }
+
+        </Text>
+        <Image source={this.state.avatarSource} style={{ width: 400, height: 400 }}  />
+      </View>
+    )
+  }
+}
