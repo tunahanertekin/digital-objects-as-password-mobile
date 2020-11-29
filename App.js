@@ -4,70 +4,42 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
-  TouchableHighlightBase
+  Image
 } from 'react-native';
 
 import ImagePicker from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import CryptoJS from 'crypto-js';
+import {FontAwesomeIcon} from '@fortawesome/react-native-fontawesome';
+import { faEye, faEyeSlash, faCopy, faFileUpload } from '@fortawesome/free-solid-svg-icons';
+import Clipboard from '@react-native-community/clipboard';
 
 export default class App extends React.Component {
 
   state = {
-      options: {
-      title: 'Select Photo',
-      customButtons: [{ name: 'fb', title: 'Choose Photo from Facebook' }],
-      storageOptions: {
-        skipBackup: true,
-        path: 'images',
-      }
-    },
-    binaryData: "heyu",
+    binaryData: "binary",
     hashedData: "hashed",
     avatarSource: {},
-    message: "mo message"
+    message: "mo message",
+    isFilePicked: false,
+    
+    fileProperties: {},
+    isPasswordVisible: false,
+    isCopied: false
   }
   
 
-  pickPhoto = () => {
-    ImagePicker.showImagePicker(this.state.options, (response) => {
-     
-      if (response.didCancel) {
-        this.setState({
-          message: "User cancelled image picker."
-        })
-      } else if (response.error) {
-        this.setState({
-          message: response.error
-        })
-      } else if (response.customButton) {
-        this.setState({
-          message: response.customButton
-        })
-      } else {
 
-        const source = { uri: 'data:image/jpeg;base64,' + response.data };
-     
-        this.setState({
-          avatarSource: source,
-          binaryData: response.data,
-          message: "Image is picked."
-        });
-      }
-
-      console.log(this.state.message)
-
-    });
-  }
-
-  async pickOtherFile(){
+  async pickFile(){
 
     try {
       const res = await DocumentPicker.pick({
-        type: [DocumentPicker.types.images],
+        type: [DocumentPicker.types.allFiles],
       });
+      this.setState({
+        fileProperties: res
+      })
       console.log(
         res.uri,
         res.type, // mime type
@@ -82,8 +54,11 @@ export default class App extends React.Component {
         RNFS.readFile(res.uri, 'base64')
         .then((contents) => {
           this.setState({
-            binaryData: contents
+            binaryData: contents,
+            isFilePicked: true,
+            isCopied: false
           })
+          this.evaluateHash()
         })
         .catch((err) => {
           console.log(err.message, err.code);
@@ -119,33 +94,80 @@ export default class App extends React.Component {
 
   render() {
     return(
-      <View>
-        <TouchableOpacity
-        onPress = { () => this.pickPhoto() }
-        >
-          <Text>
-            Fotoğraf seç!
+      <View style={{ flex: 6, flexDirection: "column", alignItems: "center", backgroundColor: "black" }}>
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          <Text style={{ fontFamily: "courier", fontWeight: "bold", fontSize: 25, color: "white" }}>
+            Create Powerful Passwords!
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-        onPress = { () => this.pickOtherFile() }
-        >
-          <Text>
-            Dosya seç!
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-        onPress = { () => this.evaluateHash() }
-        >
-          <Text>
-            Özet fonksiyonunu al.
-          </Text>
-        </TouchableOpacity>
-        <Text>
-          { this.state.hashedData }
+        </View>
+        <View style={{ flex: 3, justifyContent: "center", alignItems: "center" }}>
+          <TouchableOpacity
+          onPress = { () => this.pickFile() }
+          style={{ margin: 5, alignItems: "center" }}
+          >
+            <Text style = {{ color: "yellow", margin: 10, fontStyle: "italic" }}>
+              Upload A File: 
+            </Text>
+            {
+              this.state.isFilePicked?
+              <FontAwesomeIcon icon={faFileUpload} color="green" size={40} style={{ margin: 10  }} />:
+              <FontAwesomeIcon icon={faFileUpload} color="white" size={40} style={{ margin: 10  }} />
+            }
+          </TouchableOpacity>
+         
+          
+          <Text style={{ color: "yellow", fontFamily: "courier", fontWeight: "bold", fontSize: 20 }}>
+            File picked: &nbsp;
+          { this.state.isFilePicked?   this.state.fileProperties.name  : "..." }
+          </Text> 
 
-        </Text>
-        <Image source={this.state.avatarSource} style={{ width: 400, height: 400 }}  />
+          <View style={{ backgroundColor: "black", margin: 20, opacity: 0.5 }}>
+            <Text style = {{ backgroundColor: "yellow", color: "black", fontStyle: "italic", padding: 15, borderRadius: 15, borderColor: "red", borderWidth: 4 }}>
+              { this.state.isFilePicked? this.state.isPasswordVisible? this.state.hashedData : "Your password is generated." : "No file is picked." }
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: "row" }} >
+            <TouchableOpacity
+            onPress = { () => this.setState({ isPasswordVisible: !this.state.isPasswordVisible }) }
+            style={{ marginHorizontal: 15 }}
+            >
+              { this.state.isPasswordVisible?
+              <FontAwesomeIcon icon={faEye} color="white" size={25} />:
+              <FontAwesomeIcon icon={faEyeSlash} color="white" size={25} />
+              }
+            </TouchableOpacity>
+
+            <TouchableOpacity
+            style={{ marginHorizontal: 15 }}
+            onPress = { () => 
+              {
+                if(this.state.isFilePicked){
+                  Clipboard.setString(this.state.hashedData)
+                  this.setState({ isCopied: true })
+                }
+              }
+            }
+            >
+              {
+                this.state.isCopied?
+                <FontAwesomeIcon icon={faCopy} color="green" size={25} />:
+                <FontAwesomeIcon icon={faCopy} color="white" size={25} />
+              }
+              
+            </TouchableOpacity>
+            
+          </View>
+
+        </View>
+        <View style={{ flex: 2, justifyContent: "center" }}>
+          {
+            this.state.isCopied?
+            <Text style={{ color: "yellow", fontFamily: "courier", fontWeight: "bold", fontSize: 20  }}> Password is copied to clipboard! </Text>:
+            null
+          }
+        </View>
+        
       </View>
     )
   }
